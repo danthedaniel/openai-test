@@ -22,7 +22,10 @@ export default function Home() {
     getModels().then((newModels) => {
       const filteredModels = newModels
         .sort((a, b) => a.id.localeCompare(b.id))
-        .filter((model) => model.id.includes("similarity"));
+        .filter(
+          (model) =>
+            model.id.includes("similarity") || model.id.includes("search")
+        );
       setModels(filteredModels);
       setFormModel(filteredModels[0].id);
     });
