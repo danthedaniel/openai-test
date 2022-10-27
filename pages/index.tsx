@@ -2,6 +2,10 @@ import Head from "next/head";
 import { useEffect } from "react";
 
 export default function Home() {
+  useEffect(() => {
+    fetch("/api/handler");
+  }, []);
+
   return (
     <div className="container">
       <Head>
