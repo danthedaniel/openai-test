@@ -10,5 +10,5 @@ export default async function handler(
   const modelResponse = await openai.listModels();
   const data = modelResponse.data.data;
 
-  response.status(200).json({ data });
+  response.status(200).json({ status: "success", data });
 }
