@@ -27,7 +27,7 @@ export default function Home() {
             model.id.includes("similarity") || model.id.includes("search")
         );
       setModels(filteredModels);
-      setFormModel(filteredModels[0].id);
+      setFormModel("curie-similarity");
     });
   }, []);
 
