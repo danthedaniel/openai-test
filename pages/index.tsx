@@ -1,35 +1,31 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Layout from "../components/layouts/simple";
-import { getEmbeddings, getModels } from "../lib/api";
-import { CreateEmbeddingResponseDataInner, Model } from "openai";
+import { getEmbeddings } from "../lib/api";
+import { CreateEmbeddingResponseDataInner } from "openai";
 
 interface Result extends CreateEmbeddingResponseDataInner {
   similarity: number;
   text: string;
 }
 
+const models = ["ada", "babbage", "curie", "davinci"] as const;
+type ModelShortName = typeof models[number];
+
+const modelFullName = (
+  shortName: ModelShortName,
+  mode: "doc" | "query"
+): string => {
+  return `text-search-${shortName}-${mode}-001`;
+};
+
 export default function Home() {
-  const [models, setModels] = useState<Model[]>([]);
   const [results, setResults] = useState<Result[]>([]);
 
   // Form
-  const [formModel, setFormModel] = useState<string>("");
+  const [formModel, setFormModel] = useState<ModelShortName>("davinci");
   const [formRegex, setFormRegex] = useState<string>("/^.*$/gm");
   const [formCorpus, setFormCorpus] = useState<string>("");
   const [formSearch, setFormSearch] = useState<string>("");
-
-  useEffect(() => {
-    getModels().then((newModels) => {
-      const filteredModels = newModels
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .filter(
-          (model) =>
-            model.id.includes("similarity") || model.id.includes("search")
-        );
-      setModels(filteredModels);
-      setFormModel("text-search-curie-query-001");
-    });
-  }, []);
 
   const similarity = (embedding_a: number[], embedding_b: number[]): number => {
     if (embedding_a.length !== embedding_b.length) {
@@ -67,20 +63,25 @@ export default function Home() {
       .filter((chunk) => chunk.trim().length > 0);
     if (!corpusChunks) return;
 
-    const input = [...corpusChunks, formSearch];
-    const embeddings = await getEmbeddings({
-      model: formModel,
-      input,
+    const docPromise = getEmbeddings({
+      model: modelFullName(formModel, "doc"),
+      input: corpusChunks,
     });
-
-    const data = embeddings.data.sort((a, b) => a.index - b.index);
-    const queryEmbedding = data.pop();
-    if (!queryEmbedding) return;
+    const queryPromise = getEmbeddings({
+      model: modelFullName(formModel, "query"),
+      input: [formSearch],
+    });
+    const [docEmbeddings, queryEmbeddings] = await Promise.all([
+      docPromise,
+      queryPromise,
+    ]);
+    const queryEmbedding = queryEmbeddings.data[0];
+    const data = docEmbeddings.data.sort((a, b) => a.index - b.index);
 
     const results = data
       .map((datum) => ({
         similarity: similarity(datum.embedding, queryEmbedding.embedding),
-        text: input[datum.index],
+        text: corpusChunks[datum.index],
         ...datum,
       }))
       .sort((a, b) => b.similarity - a.similarity);
@@ -94,11 +95,15 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <select
               value={formModel}
-              onChange={(event) => setFormModel(event.target.value)}
+              onChange={(event) =>
+                setFormModel(event.target.value as ModelShortName)
+              }
               className="grow"
             >
               {models.map((model) => (
-                <option value={model.id}>{model.id}</option>
+                <option key={model} value={model}>
+                  {model}
+                </option>
               ))}
             </select>
             <input
